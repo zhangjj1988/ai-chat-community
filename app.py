@@ -5,6 +5,7 @@ import os
 import pandas as pd
 from datetime import datetime
 import dashscope  # 通义千问SDK
+import pyperclip  # 新增：复制剪贴板所需库
 
 # ====================== 界面美化样式 ======================
 st.markdown("""
@@ -28,6 +29,13 @@ st.markdown("""
 /* 评分滑块 */
 .stSlider > div {
     padding: 0 10px;
+}
+/* 分享区域样式优化 */
+.share-section {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    background-color: #f0f2f6;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -90,6 +98,8 @@ if "role_scores" not in st.session_state:
     st.session_state.role_scores = {role: 0 for role in ROLE_CONFIG.keys()}
 if "score_submitted" not in st.session_state:
     st.session_state.score_submitted = False  # 评分标记
+if "copy_success" not in st.session_state:
+    st.session_state.copy_success = False  # 新增：复制成功标记
 
 # ====================== 侧边栏：社区功能区 ======================
 st.sidebar.title("🤖 AI聊天社区")
@@ -106,6 +116,7 @@ if selected_role != st.session_state.selected_role:
     st.session_state.selected_role = selected_role
     st.session_state.messages = []
     st.session_state.score_submitted = False
+    st.session_state.copy_success = False  # 切换角色重置复制提示
 
 # 角色切换提示
 st.sidebar.info(f"已切换至「{selected_role}」，聊天记录已清空～")
@@ -143,14 +154,16 @@ if st.session_state.messages:  # 有聊天记录才显示评分
 if st.sidebar.button("🗑️ 清空聊天记录"):
     st.session_state.messages = []
     st.session_state.score_submitted = False
+    st.session_state.copy_success = False  # 清空记录重置复制提示
     st.rerun()  # 适配新版Streamlit
 
 # ====================== 主界面：聊天区 ======================
 st.title(f"{ROLE_CONFIG[selected_role]['avatar']} {selected_role} - AI聊天社区")
 st.markdown("---")
 
-# 显示聊天记录
-for msg in st.session_state.messages:
+# 显示聊天记录（只显示最近20条，避免卡顿）
+display_messages = st.session_state.messages[-20:]
+for msg in display_messages:
     # 区分用户/AI消息
     if msg["role"] == "user":
         with st.chat_message("user", avatar="👤"):
@@ -199,3 +212,36 @@ if prompt := st.chat_input("输入你想聊的内容..."):
         st.markdown(ai_response)
         # 保存AI回复到会话
         st.session_state.messages.append({"role": "assistant", "content": ai_response})
+
+# ====================== 新增：分享功能区 ======================
+st.markdown("---")
+# 用自定义样式包裹分享区域，更美观
+st.markdown('<div class="share-section">', unsafe_allow_html=True)
+st.subheader("❤️ 觉得好用？分享给朋友吧～")
+
+# 替换为你实际的Streamlit Cloud链接
+your_actual_link = "https://ai-chat-community.streamlit.app"  # 这里改成你部署后的真实链接！
+# 生成带来源标记的分享链接（便于统计分享来源）
+share_link = f"{your_actual_link}?from=user_share"
+
+# 显示分享链接（代码块样式，方便复制）
+st.code(share_link, language="text")
+
+# 复制链接按钮（优化交互：点击后显示成功提示）
+col1, col2 = st.columns([1, 4])
+with col1:
+    if st.button("📋 复制链接"):
+        try:
+            pyperclip.copy(share_link)
+            st.session_state.copy_success = True
+        except Exception as e:
+            st.error("复制失败！请手动复制链接")
+            st.session_state.copy_success = False
+
+# 复制成功提示
+if st.session_state.copy_success:
+    st.success("✅ 链接已复制到剪贴板！快分享给朋友吧～")
+
+# 引导语
+st.caption("分享给朋友，一起体验不同角色的AI聊天～")
+st.markdown('</div>', unsafe_allow_html=True)
